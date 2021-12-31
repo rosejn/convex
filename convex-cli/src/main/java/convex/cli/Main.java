@@ -82,6 +82,7 @@ public class Main implements Runnable {
 	private String keyStoreFilename;
 
 	@Option(names={"-p", "--password"},
+    defaultValue = "${env:CONVEX_PASSWORD}",
 		scope = ScopeType.INHERIT,
 		//defaultValue="",
 		description="Password to read/write to the Keystore")
