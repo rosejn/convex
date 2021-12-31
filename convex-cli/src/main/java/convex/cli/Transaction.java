@@ -1,5 +1,9 @@
 package convex.cli;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,15 +67,20 @@ public class Transaction implements Runnable {
 		description="Timeout in miliseconds.")
 	private long timeout = Constants.DEFAULT_TIMEOUT_MILLIS;
 
+	@Option(names={"-f", "--file"},
+			description="Path to a CVX source file which will be used for this transaction.")
+	private Path cvxSrcPath;
+
 	@Parameters(paramLabel="transactionCommand",
 		description="Transaction Command")
 	private String[] transactionList;
 
 	@Override
 	public void run() {
-
-		AKeyPair keyPair = null;
-		try {
+	    String transactionCommand = "";
+	    AKeyPair keyPair = null;
+		
+	    try {
 			keyPair = mainParent.loadKeyFromStore(keystorePublicKey, keystoreIndex);
 		} catch (Error e) {
 			mainParent.showError(e);
@@ -87,13 +96,32 @@ public class Transaction implements Runnable {
 			log.warn("--address. You need to provide a valid address number");
 			return;
 		}
+		
+		if (cvxSrcPath != null) {
+			if (!Files.exists(cvxSrcPath)) {
+				log.warn("--file. File not found and specified source path");
+				return;
+			} else {
+				try {
+					transactionCommand = Files.readString(cvxSrcPath);
+				} catch (IOException e) {
+					log.warn("--file. Error opening file.");
+					mainParent.showError(e);
+				}
+			}
+		}
 
 		Address address = Address.create(addressNumber);
 
 		Convex convex = null;
 		try {
 			convex = mainParent.connectToSessionPeer(hostname, port, address, keyPair);
-			String transactionCommand = String.join(" ", transactionList);
+		
+			if (transactionList != null) {
+				// Transactions passed as strings on the cmdline are appended to transactions from a file
+				transactionCommand = transactionCommand + " " + String.join(" ", transactionList);
+			}
+			
 			log.info("Executing transaction: '{}'\n", transactionCommand);
 			ACell message = Reader.read(transactionCommand);
 			ATransaction transaction = Invoke.create(address, -1, message);
